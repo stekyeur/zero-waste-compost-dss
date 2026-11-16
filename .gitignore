@@ -1,0 +1,17 @@
+# Secrets
+.env
+
+# Dataset and trained model (large; see README for how to obtain / train)
+dataset/
+*.keras
+*.h5
+
+# Course reports
+*.pdf
+*.docx
+
+# Python
+.venv*/
+venv/
+__pycache__/
+*.pyc

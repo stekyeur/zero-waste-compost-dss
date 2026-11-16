@@ -1,0 +1,6 @@
+opencv-python
+numpy
+tensorflow
+paho-mqtt>=2.0
+supabase
+python-dotenv
