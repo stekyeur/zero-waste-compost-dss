@@ -1,0 +1,2 @@
+# Pi üzerinde çalışan betikler Linux satır sonu (LF) kullanmalı
+*.sh text eol=lf

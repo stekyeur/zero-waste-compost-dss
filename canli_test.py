@@ -1,40 +1,45 @@
+"""
+Canlı kamera görüntüsünde organik / yabancı madde sınıflandırması.
+Kamera kaynağı .env dosyasındaki KAMERA değişkeninden okunur (bkz. kamera.py).
+"""
 import cv2
 import numpy as np
 import tensorflow as tf
+from kamera import kamera_ac
 
-# Eğitilen modeli belleğe yükle
 print("Yapay Zeka modeli yükleniyor...")
-model = tf.keras.models.load_model('atik_siniflandirma_modeli.keras')
+model = tf.keras.models.load_model("atik_siniflandirma_modeli.keras")
 
-# Sınıflar (0: Organik, 1: Geri Dönüştürülebilir)
+# Sınıf sırası eğitimdeki klasör sırasıyla aynıdır: 'O' (organik), 'R' (geri dönüştürülebilir)
 kategoriler = ["Organik Gida (Komposta Uygun)", "YABANCI MADDE (Plastik/Cam)"]
 
-cap = cv2.VideoCapture(0)
+cap = kamera_ac()
 
 while True:
     ret, frame = cap.read()
     if not ret:
+        print("Kameradan görüntü alınamadı!")
         break
 
-    # Görüntüyü AI modelinin beklediği 224x224 boyutuna ve formata getir
-    img = cv2.resize(frame, (224, 224))
-    img_array = np.expand_dims(img, axis=0) / 255.0 # Normalizasyon ve Batch boyutu ekleme
+    # Model RGB görüntülerle eğitildi; OpenCV ise BGR verir -> RGB'ye çevir.
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(rgb, (224, 224)).astype("float32")
+    # NOT: Modelin ilk katmanı zaten Rescaling(1/255) içeriyor,
+    # bu yüzden burada tekrar 255'e BÖLMÜYORUZ.
+    img_array = np.expand_dims(img, axis=0)
 
-    # Tahmin yap
-    tahminler = model.predict(img_array, verbose=0)
-    sinif_index = np.argmax(tahminler[0])
-    
-    # Güven skorunu hesapla (Softmax)
-    guven_skoru = tf.nn.softmax(tahminler[0])[sinif_index].numpy() * 100
+    logits = model.predict(img_array, verbose=0)[0]
+    olasiliklar = tf.nn.softmax(logits).numpy()
+    sinif_index = int(np.argmax(olasiliklar))
+    guven_skoru = olasiliklar[sinif_index] * 100
 
-    # Ekrana sonuçları yazdır (Organik ise Yeşil, değilse Kırmızı)
     etiket = f"{kategoriler[sinif_index]} (%{guven_skoru:.1f})"
     renk = (0, 255, 0) if sinif_index == 0 else (0, 0, 255)
-    
-    cv2.putText(frame, etiket, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, renk, 2)
+
+    cv2.putText(frame, etiket, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, renk, 2)
     cv2.imshow("Kompost AI Kontrol (Cikis: Q)", frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
 cap.release()
